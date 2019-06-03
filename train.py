@@ -133,13 +133,13 @@ train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                            batch_size=args.batch_size,
                                            shuffle=True,
                                            pin_memory=True,
-                                           num_workers=2)
+                                           num_workers=32)
 
 test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                           batch_size=args.batch_size,
                                           shuffle=False,
                                           pin_memory=True,
-                                          num_workers=2)
+                                          num_workers=10)
 
 if args.model == 'resnet18':
     cnn = ResNet18(num_classes=num_classes)
@@ -164,7 +164,11 @@ else:
 filename = 'logs/' + test_id + '.csv'
 csv_logger = CSVLogger(args=args, fieldnames=['epoch', 'train_acc', 'test_acc'], filename=filename)
 
-
+def count_params(net):
+     return sum([np.prod(param.size()) for name, param in net.named_parameters()])
+params = count_params(cnn)
+mobilenet_params = 6900000 
+mobilenet_flops = 1170000000
 def test(loader):
     cnn.eval()    # Change model to 'eval' mode (BN uses moving mean/var).
     correct = 0.
@@ -218,8 +222,9 @@ for epoch in range(args.epochs):
             acc='%.3f' % accuracy)
 
     test_acc = test(test_loader)
-    tqdm.write('test_acc: %.3f' % (test_acc))
-
+    flops = cnn.flops()
+    score = flops/mobilenet_flops + params/mobilenet_params
+    tqdm.write('test_acc: %.3f, flops: %s, parameters: %s, score %s' % (test_acc,flops,params,score))
     scheduler.step(epoch)
 
     row = {'epoch': str(epoch), 'train_acc': str(accuracy), 'test_acc': str(test_acc)}
