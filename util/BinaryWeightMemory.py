@@ -17,7 +17,7 @@ class BinaryWeightMemory():
         self.params += 1
 
     
-  def binarize(self, determinist = True):
+  def binarize(self, BWN=True, determinist = True):
     """ 
     Modify the weights to show their binary counterpart at inference time
     """
@@ -29,7 +29,7 @@ class BinaryWeightMemory():
       else:
         """ From Courbariaux & al. 2015, w_b = +1 with p=hardsigmoid(w), -1 with q = 1-p """
         raise ValueError('Stochastic binarization is not supported')
-
+      if BWN: quantized *= torch.mean(true_value)
       self.actual_params[i].data.copy_(quantized)
   
   def restore(self):
