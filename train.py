@@ -18,6 +18,7 @@ from torchvision import datasets, transforms
 
 from util.misc import CSVLogger
 from util.cutout import Cutout
+from util.BinaryWeightMemory import BinaryWeightMemory
 
 from model.resnet import ResNet18
 from model.wide_resnet import WideResNet
@@ -28,6 +29,8 @@ dataset_options = ['cifar10', 'cifar100', 'svhn']
 parser = argparse.ArgumentParser(description='CNN')
 parser.add_argument('--dataset', '-d', default='cifar10',
                     choices=dataset_options)
+parser.add_argument('--binaryconnect', '-bc', default=True,
+                    type=bool)
 parser.add_argument('--model', '-a', default='resnet18',
                     choices=model_options)
 parser.add_argument('--batch_size', type=int, default=128,
@@ -156,6 +159,9 @@ criterion = nn.CrossEntropyLoss().cuda()
 cnn_optimizer = torch.optim.SGD(cnn.parameters(), lr=args.learning_rate,
                                 momentum=0.9, nesterov=True, weight_decay=5e-4)
 
+# Binary Connect init.
+if args.bc: wm = BinaryWeightMemory(cnn)
+
 if args.dataset == 'svhn':
     scheduler = MultiStepLR(cnn_optimizer, milestones=[80, 120], gamma=0.1)
 else:
@@ -166,13 +172,14 @@ csv_logger = CSVLogger(args=args, fieldnames=['epoch', 'train_acc', 'test_acc'],
 
 def count_params(net):
      return sum([np.prod(param.size()) for name, param in net.named_parameters()])
-params = count_params(cnn)
+params = count_params(cnn) * (args.bc/16)
 mobilenet_params = 6900000 
 mobilenet_flops = 1170000000
 def test(loader):
     cnn.eval()    # Change model to 'eval' mode (BN uses moving mean/var).
     correct = 0.
     total = 0.
+    try: wm.binarize()
     for images, labels in loader:
         images = images.cuda()
         labels = labels.cuda()
@@ -186,6 +193,7 @@ def test(loader):
 
     val_acc = correct / total
     cnn.train()
+    try: wm.restore()
     return val_acc
 
 
@@ -198,17 +206,18 @@ for epoch in range(args.epochs):
     progress_bar = tqdm(train_loader)
     for i, (images, labels) in enumerate(progress_bar):
         progress_bar.set_description('Epoch ' + str(epoch))
-
+        
         images = images.cuda()
         labels = labels.cuda()
-
+        try: wm.binarize()
         cnn.zero_grad()
         pred = cnn(images)
 
         xentropy_loss = criterion(pred, labels)
         xentropy_loss.backward()
+        wm.restore()
         cnn_optimizer.step()
-
+        wm.clip()
         xentropy_loss_avg += xentropy_loss.item()
 
         # Calculate running average of accuracy
