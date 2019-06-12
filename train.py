@@ -18,7 +18,7 @@ from torchvision import datasets, transforms
 
 from util.misc import CSVLogger
 from util.cutout import Cutout
-from util.BinaryWeightMemory import BinaryWeightMemory
+from util.BinaryWeightNetwork import BinaryWeightNetwork
 
 from model.resnet import ResNet18
 from model.wide_resnet import WideResNet
@@ -160,7 +160,7 @@ cnn_optimizer = torch.optim.SGD(cnn.parameters(), lr=args.learning_rate,
                                 momentum=0.9, nesterov=True, weight_decay=5e-4)
 
 # Binary Connect init.
-if args.bc: wm = BinaryWeightMemory(cnn)
+if args.bc: wm = BinaryWeightNetwork(cnn)
 
 if args.dataset == 'svhn':
     scheduler = MultiStepLR(cnn_optimizer, milestones=[80, 120], gamma=0.1)
@@ -215,9 +215,9 @@ for epoch in range(args.epochs):
 
         xentropy_loss = criterion(pred, labels)
         xentropy_loss.backward()
-        wm.restore()
+        try: wm.restore()
         cnn_optimizer.step()
-        wm.clip()
+        try: wm.clip()
         xentropy_loss_avg += xentropy_loss.item()
 
         # Calculate running average of accuracy
