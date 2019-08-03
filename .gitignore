@@ -1,5 +1,6 @@
 *.pyc
 */checkpoints
+*/checkpoint
 checkpoints/
 */logs
 logs/
@@ -9,4 +10,5 @@ data/
 */.ipynb_checkpoints/*
 LIT/checkpoint
 Separate/checkpoint
+Integrate/checkpoint
 
