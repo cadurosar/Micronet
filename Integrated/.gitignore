@@ -1,0 +1,8 @@
+*.pyc
+checkpoints/
+logs/
+data/
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+LIT/checkpoint
+
