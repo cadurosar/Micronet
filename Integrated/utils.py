@@ -184,7 +184,7 @@ def load_data(batch_size=128, cutout=False, batch_clean=128):
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            Cutout(1,8)
+            Cutout(8,2)
         ])
     else:
         transform_train = transforms.Compose([

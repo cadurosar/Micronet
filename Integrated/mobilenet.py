@@ -90,7 +90,7 @@ class MobileNetV2(nn.Module):
             inverted_residual_setting = [
                 # t, c, n, s
                 [1, 16, 1, 1],
-                [6, 24, 2, 2],
+                [6, 24, 2, 1],
                 [6, 32, 3, 2],
                 [6, 64, 4, 2],
                 [6, 96, 3, 1],
@@ -106,7 +106,7 @@ class MobileNetV2(nn.Module):
         # building first layer
         input_channel = _make_divisible(input_channel * width_mult, round_nearest)
         self.last_channel = _make_divisible(last_channel * max(1.0, width_mult), round_nearest)
-        features = [ConvBNReLU(3, input_channel, stride=2)]
+        features = [ConvBNReLU(3, input_channel, stride=1)]
         # building inverted residual blocks
         for t, c, n, s in inverted_residual_setting:
             output_channel = _make_divisible(c * width_mult, round_nearest)
