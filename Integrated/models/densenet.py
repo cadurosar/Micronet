@@ -15,6 +15,18 @@ def get_groups():
     global groups
     return groups
 
+class SingleLayer(nn.Module):
+    def __init__(self, nChannels, growthRate):
+        super(SingleLayer, self).__init__()
+        self.bn1 = nn.BatchNorm2d(nChannels)
+        self.conv1 = nn.Conv2d(nChannels, growthRate, kernel_size=3,
+                               padding=1, bias=False)
+
+    def forward(self, x):
+        out = self.conv1(F.relu(self.bn1(x)))
+        out = torch.cat((x, out), 1)
+        return out
+
 class Bottleneck(nn.Module):
     def __init__(self, in_planes, growth_rate):
         super(Bottleneck, self).__init__()
@@ -107,11 +119,11 @@ def DenseNet201():
 def DenseNet161():
     return DenseNet(Bottleneck, [6,12,36,24], growth_rate=48)
 
-def densenet_cifar(n=100,growth_rate=6,reduction=0.5, groups=False):
+def densenet_cifar(n=100,growth_rate=6,reduction=0.5, groups=False): #n=196 growth_rate=8
     n = (n-4)//3
-    n = n//2
+    #n = n//2
     set_groups(groups)
-    return DenseNet(Bottleneck, [n,n,n], growth_rate=growth_rate, reduction=reduction)
+    return DenseNet(SingleLayer, [n,n,n], growth_rate=growth_rate, reduction=reduction)
 
 def test():
     net = densenet_cifar()

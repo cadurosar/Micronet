@@ -3,7 +3,7 @@ import argparse
 import torch
 import torch.nn as nn
 import utils
-
+import identity
 def count_conv2d(m, x, y):
     x = x[0]
 
@@ -80,6 +80,11 @@ def count_linear(m, x, y):
 
     m.total_ops += torch.Tensor([int(total_ops)])
 
+def count_identity(m, x, y):
+    total_ops = y.numel()
+    m.total_ops += torch.Tensor([int(total_ops)]) 
+    
+
 def profile(model, input_size, custom_ops = {}):
 
     model.eval()
@@ -104,6 +109,8 @@ def profile(model, input_size, custom_ops = {}):
             m.register_forward_hook(count_avgpool)
         elif isinstance(m, nn.Linear):
             m.register_forward_hook(count_linear)
+        elif isinstance(m, identity.Identity):
+            m.register_forward_hook(count_identity)
         elif isinstance(m, (nn.Dropout, nn.Dropout2d, nn.Dropout3d)):
             pass
         else:
@@ -127,13 +134,15 @@ def profile(model, input_size, custom_ops = {}):
 
 def main():
     import mobilenet
-
-#    model = mobilenet.mobilenet_v2(width_mult=1.4)
+    import models.densenet
+#    model = mobilenet.mobilenet_v2(width_mult=1.4,num_classes=1000)
+    model = models.densenet.densenet_cifar(n=93,growth_rate=7)#(width_mult=1.4,num_classes=100)
 #    model = torch.load("checkpoint/resnet110samesize.pth")["net"].module.cpu()
-    file = "checkpoint/11010_teacher_144_student-2.pth"
-    model = torch.load(file)["net"].module.cpu()
+#    file = "checkpoint/11010_teacher_144_student-2.pth"
+#    model = torch.load(file)["net"].module.cpu()
 
     flops, params = profile(model, (1,3,32,32))
+#    flops, params = profile(model, (1,3,224,224))
     flops, params = flops.item(), params.item()
     mobilenet_params = 6900000
     mobilenet_flops = 1170000000
