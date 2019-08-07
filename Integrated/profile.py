@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import utils
 import identity
+import sat
 def count_conv2d(m, x, y):
     x = x[0]
 
@@ -15,6 +16,27 @@ def count_conv2d(m, x, y):
     # ops per output element
     kernel_mul = kh * kw * cin
     kernel_add = kh * kw * cin - 1
+    bias_ops = 1 if m.bias is not None else 0
+    ops = kernel_mul + kernel_add + bias_ops
+
+    # total ops
+    num_out_elements = y.numel()
+    total_ops = num_out_elements * ops
+
+    # incase same conv is used multiple times
+    m.total_ops += torch.Tensor([int(total_ops)])
+
+def count_sat(m, x, y):
+    x = x[0]
+
+    cin = m.in_channels // m.groups
+    cout = m.out_channels // m.groups
+    kh, kw = m.kernel_size
+    batch_size = x.size()[0]
+
+    # ops per output element
+    kernel_mul = cin
+    kernel_add = cin - 1
     bias_ops = 1 if m.bias is not None else 0
     ops = kernel_mul + kernel_add + bias_ops
 
@@ -93,11 +115,18 @@ def profile(model, input_size, custom_ops = {}):
         if len(list(m.children())) > 0: return
         m.register_buffer('total_ops', torch.zeros(1))
         m.register_buffer('total_params', torch.zeros(1))
-
-        for p in m.parameters():
-            m.total_params += torch.Tensor([p.numel()])
-
-        if isinstance(m, nn.Conv2d):
+        if isinstance(m, sat.ShiftAttention):
+            
+            for p in m.parameters():     
+                m.total_params += torch.Tensor([p.numel()*36/(18*32)]) 
+        else:
+            
+            for p in m.parameters():
+                m.total_params += torch.Tensor([p.numel()])
+        
+        if isinstance(m, sat.ShiftAttention):
+            m.register_forward_hook(count_sat)
+        elif isinstance(m, nn.Conv2d):
             m.register_forward_hook(count_conv2d)
         elif isinstance(m, nn.BatchNorm2d):
             m.register_forward_hook(count_bn2d)
@@ -111,6 +140,7 @@ def profile(model, input_size, custom_ops = {}):
             m.register_forward_hook(count_linear)
         elif isinstance(m, identity.Identity):
             m.register_forward_hook(count_identity)
+        
         elif isinstance(m, (nn.Dropout, nn.Dropout2d, nn.Dropout3d)):
             pass
         else:
@@ -135,8 +165,10 @@ def profile(model, input_size, custom_ops = {}):
 def main():
     import mobilenet
     import models.densenet
+    import resnet20
 #    model = mobilenet.mobilenet_v2(width_mult=1.4,num_classes=1000)
-    model = models.densenet.densenet_cifar(n=93,growth_rate=7)#(width_mult=1.4,num_classes=100)
+#    model = models.densenet.densenet_cifar(n=93,growth_rate=7)#(width_mult=1.4,num_classes=100)
+    model = resnet20.ResNet56()#
 #    model = torch.load("checkpoint/resnet110samesize.pth")["net"].module.cpu()
 #    file = "checkpoint/11010_teacher_144_student-2.pth"
 #    model = torch.load(file)["net"].module.cpu()
