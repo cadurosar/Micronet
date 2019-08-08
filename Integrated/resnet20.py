@@ -121,7 +121,7 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.reduction = float(reduction) ** 0.5
         self.num_classes = num_classes
-        self.in_planes = 16
+        self.in_planes = 64
         value = self.in_planes
 
         self.conv1 = nn.Conv2d(3, self.in_planes, kernel_size=3, stride=1, padding=1, bias=False)
