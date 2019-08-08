@@ -121,17 +121,17 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.reduction = float(reduction) ** 0.5
         self.num_classes = num_classes
-        self.in_planes = 29
+        self.in_planes = 16
         value = self.in_planes
 
         self.conv1 = nn.Conv2d(3, self.in_planes, kernel_size=3, stride=1, padding=1, bias=False)
          
         self.bn1 = nn.BatchNorm2d(self.in_planes)
-         
-        self.layer1 = self._make_layer(block, self.in_planes, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, int(value*2 / self.reduction), num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, int(value*4 / self.reduction), num_blocks[2], stride=2)
-        self.linear = nn.Linear(int(value*4 / self.reduction), num_classes)
+
+        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(block, int(64*2 / self.reduction), num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(block, int(64*4 / self.reduction), num_blocks[2], stride=2)
+        self.linear = nn.Linear(int(64*4 / self.reduction), num_classes)
          
 
     def _make_layer(self, block, planes, num_blocks, stride):
@@ -163,7 +163,7 @@ class ResNet(nn.Module):
         self.out_hw = out.size()
         out = self.linear(out)
         nb_activation+= out.shape[1]
-        return out,nb_activation
+        return out#,nb_activation
 
 
 def ResNetWrapper(num_blocks, reduction=1, reduction_mode='net', num_classes=10):
@@ -185,8 +185,11 @@ def SATWrapper(num_blocks, reduction=1, reduction_mode='net', num_classes=10):
 def ResNet20(reduction=1, reduction_mode='net', num_classes=10):
     return ResNetWrapper([3, 3, 3], reduction, reduction_mode, num_classes)
 
-def ResNet56(reduction=1, reduction_mode='net', num_classes=10):
+def SATResNet56(reduction=1, reduction_mode='net', num_classes=10):
     return SATWrapper([9, 9, 9], reduction, reduction_mode, num_classes)
 
 def SATResNet20(reduction=1, reduction_mode='net', num_classes=10):
     return SATWrapper([3, 3, 3], reduction, reduction_mode, num_classes)
+
+def SATResNet26(reduction=1, reduction_mode='net', num_classes=10):
+    return SATWrapper([2, 4, 6], reduction, reduction_mode, num_classes)

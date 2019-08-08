@@ -13,6 +13,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 import torch 
 import numpy as np
+import sat_parameters
 
 import torchvision
 import torchvision.transforms as transforms
@@ -184,7 +185,7 @@ def load_data(batch_size=128, cutout=False, batch_clean=128):
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            Cutout(8,2)
+            Cutout(64,1)
         ])
     else:
         transform_train = transforms.Compose([
@@ -303,6 +304,7 @@ def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,tem
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
+        sat_parameters.update_temperature_mult()
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
