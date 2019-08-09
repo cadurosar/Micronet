@@ -5,6 +5,7 @@ import torch.nn as nn
 import utils
 import identity
 import sat
+import sat2
 def count_conv2d(m, x, y):
     x = x[0]
 
@@ -46,6 +47,29 @@ def count_sat(m, x, y):
 
     # incase same conv is used multiple times
     m.total_ops += torch.Tensor([int(total_ops)])
+
+
+def count_sat2(m, x, y):
+    x = x[0]
+
+    cin = m.in_channels // m.groups
+    cout = m.out_channels // m.groups
+    kh, kw = m.kernel_size
+    batch_size = x.size()[0]
+
+    # ops per output element
+    kernel_mul = 2*cin
+    kernel_add = cin - 1
+    bias_ops = 1 if m.bias is not None else 0
+    ops = kernel_mul + kernel_add + bias_ops
+
+    # total ops
+    num_out_elements = y.numel()
+    total_ops = num_out_elements * ops
+
+    # incase same conv is used multiple times
+    m.total_ops += torch.Tensor([int(total_ops)])
+
 
 def count_bn2d(m, x, y):
     x = x[0]
@@ -118,7 +142,11 @@ def profile(model, input_size, custom_ops = {}):
         if isinstance(m, sat.ShiftAttention):
             
             for p in m.parameters():     
-                m.total_params += torch.Tensor([p.numel()*36/(18*32)]) 
+                m.total_params += torch.Tensor([p.numel()*36/(18*32)])
+        elif isinstance(m, sat.ShiftAttention):
+            
+            for p in m.parameters():     
+                m.total_params += torch.Tensor([p.numel()*2*36/(18*32)]) 
         else:
             
             for p in m.parameters():
@@ -126,6 +154,8 @@ def profile(model, input_size, custom_ops = {}):
         
         if isinstance(m, sat.ShiftAttention):
             m.register_forward_hook(count_sat)
+        elif isinstance(m, sat2.ShiftAttention):
+            m.register_forward_hook(count_sat2)
         elif isinstance(m, nn.Conv2d):
             m.register_forward_hook(count_conv2d)
         elif isinstance(m, nn.BatchNorm2d):
