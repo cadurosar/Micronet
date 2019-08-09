@@ -59,7 +59,7 @@ def count_sat2(m, x, y):
 
     # ops per output element
     kernel_mul = 2*cin
-    kernel_add = cin - 1
+    kernel_add = 2*cin - 1
     bias_ops = 1 if m.bias is not None else 0
     ops = kernel_mul + kernel_add + bias_ops
 
