@@ -225,6 +225,21 @@ def to_one_hot(inp,num_classes):
     
     return y_onehot
 
+def accuracy(output, target, topk=(1,)):
+    """Computes the accuracy over the k top predictions for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
 
 def mixup_process(out, target_reweighted, lam):
     indices = np.random.permutation(out.size(0))
@@ -233,7 +248,7 @@ def mixup_process(out, target_reweighted, lam):
     target_reweighted = target_reweighted * lam + target_shuffled_onehot * (1 - lam)
     return out, target_reweighted
 
-def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,temp=6, mixup_alpha=1):
+def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,temp=6, mixup_alpha=1, ricap_beta=0.3, ricapOverMixup=False):
     net.train()
     train_loss = 0
     correct = 0
@@ -241,31 +256,61 @@ def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,tem
     criterion = BatchMeanCrossEntropyWithLogSoftmax()
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
-        targets2 = to_one_hot(targets, 100)
-        lam = get_lambda(mixup_alpha)
-        lam = torch.from_numpy(np.array([lam]).astype('float32')).cuda()
-        inputs, targets2 = mixup_process(inputs, targets2, lam=lam)
+        if ricapOverMixup:
+            I_x, I_y = inputs.size()[2:]
 
-        targets = targets2.argmax(dim=1)
+            w = int(np.round(I_x * np.random.beta(ricap_beta, ricap_beta)))
+            h = int(np.round(I_y * np.random.beta(ricap_beta, ricap_beta)))
+            w_ = [w, I_x - w, w, I_x - w]
+            h_ = [h, h, I_y - h, I_y - h]
 
-        optimizer.zero_grad()
+            cropped_images = {}
+            c_ = {}
+            W_ = {}
+            for k in range(4):
+                idx = torch.randperm(inputs.size(0))
+                x_k = np.random.randint(0, I_x - w_[k] + 1)
+                y_k = np.random.randint(0, I_y - h_[k] + 1)
+                cropped_images[k] = inputs[idx][:, :, x_k:x_k + w_[k], y_k:y_k + h_[k]]
+                c_[k] = targets[idx].cuda()
+                W_[k] = w_[k] * h_[k] / (I_x * I_y)
+
+            patched_images = torch.cat(
+                (torch.cat((cropped_images[0], cropped_images[1]), 2),
+                torch.cat((cropped_images[2], cropped_images[3]), 2)),
+            3)
+            patched_images = patched_images.cuda()
+
+            outputs = net(patched_images)
+            cross_entropy = sum([W_[k] * criterion(outputs, c_[k]) for k in range(4)])
+            acc = sum([W_[k] * accuracy(outputs, c_[k])[0] for k in range(4)])
+        else:
+            targets2 = to_one_hot(targets, 100)
+            lam = get_lambda(mixup_alpha)
+            lam = torch.from_numpy(np.array([lam]).astype('float32')).cuda()
+            inputs, targets2 = mixup_process(inputs, targets2, lam=lam)
+            targets = targets2.argmax(dim=1)
+            outputs = net(inputs)
+            cross_entropy = criterion(F.log_softmax(outputs,dim=-1),targets2)
+        
         if teacher:
             with torch.no_grad():
                 teacher_output = teacher(inputs)
-            outputs = net(inputs)
-            cross_entropy = criterion(F.log_softmax(outputs,dim=-1),targets2)
             kd_loss_teacher = criterion(F.log_softmax(outputs/temp,dim=-1),F.softmax(teacher_output/temp,dim=-1))
             loss = (1-alpha)*kd_loss_teacher + alpha*cross_entropy
         else:
-            outputs = net(inputs)
-            loss = criterion(F.log_softmax(outputs,dim=-1), targets2)
+            loss = cross_entropy
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
         total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
+        if acc:
+            correct += acc
+        else:
+            correct += predicted.eq(targets).sum().item()
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
