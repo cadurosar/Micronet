@@ -12,6 +12,7 @@ import sat_parameters
 from models import *
 from utils import progress_bar, load_data, train, test
 from torch.optim.lr_scheduler import MultiStepLR
+import binaryconnect
 
 
 def main():
@@ -24,10 +25,11 @@ def main():
         cudnn.benchmark = True
     optimizer = optim.SGD(net.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4)
     scheduler = MultiStepLR(optimizer, milestones=[100, 200], gamma=0.1)
+    bc = binaryconnect.BC(net)
     for epoch in range(200):
         print('Epoch: %d' % epoch)
-        train(net,trainloader,scheduler, device, optimizer,cutmix=True)
-        test(net,testloader, device, save_name="SAL_246")
+        train(net,trainloader,scheduler, device, optimizer,cutmix=True,bc=bc)
+        test(net,testloader, device, save_name="SAL_246",bc=bc)
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-4)
     scheduler = MultiStepLR(optimizer, milestones=[100, 200], gamma=0.1)
     for epoch in range(5):

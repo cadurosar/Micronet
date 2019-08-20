@@ -6,7 +6,10 @@ import utils
 import identity
 import sat
 import sat2
+import binaryconnect
+import pooling
 def count_conv2d(m, x, y):
+    global binary_connect
     x = x[0]
 
     cin = m.in_channels // m.groups
@@ -15,7 +18,7 @@ def count_conv2d(m, x, y):
     batch_size = x.size()[0]
 
     # ops per output element
-    kernel_mul = kh * kw * cin
+    kernel_mul = kh * kw * cin * (1/32)**m.binary  
     kernel_add = kh * kw * cin - 1
     bias_ops = 1 if m.bias is not None else 0
     ops = kernel_mul + kernel_add + bias_ops
@@ -36,7 +39,7 @@ def count_sat(m, x, y):
     batch_size = x.size()[0]
 
     # ops per output element
-    kernel_mul = cin
+    kernel_mul = cin * (1/32)**m.binary
     kernel_add = cin - 1
     bias_ops = 1 if m.bias is not None else 0
     ops = kernel_mul + kernel_add + bias_ops
@@ -58,7 +61,7 @@ def count_sat2(m, x, y):
     batch_size = x.size()[0]
 
     # ops per output element
-    kernel_mul = 2*cin
+    kernel_mul = 2*cin * (1/32)**m.binary
     kernel_add = 2*cin - 1
     bias_ops = 1 if m.bias is not None else 0
     ops = kernel_mul + kernel_add + bias_ops
@@ -119,17 +122,24 @@ def count_avgpool(m, x, y):
 
 def count_linear(m, x, y):
     # per output element
-    total_mul = m.in_features
+    total_mul = m.in_features * (1/32)**m.binary
     total_add = m.in_features - 1
     num_elements = y.numel()
     total_ops = (total_mul + total_add) * num_elements
 
     m.total_ops += torch.Tensor([int(total_ops)])
 
+
 def count_identity(m, x, y):
     total_ops = y.numel()
     m.total_ops += torch.Tensor([int(total_ops)]) 
-    
+
+
+def count_globalAveragePooling(m, x, y):
+    total_add = x.shape[2]*x.shape[3]
+    total_div = 1
+    total_ops = y.numel() * (total_add + total_div)
+    m.total_ops += torch.Tensor([int(total_ops)])     
 
 def profile(model, input_size, custom_ops = {}):
 
@@ -143,20 +153,26 @@ def profile(model, input_size, custom_ops = {}):
             
             for p in m.parameters():     
                 m.total_params += torch.Tensor([p.numel()*36/(18*32)])
-        elif isinstance(m, sat.ShiftAttention):
+        elif isinstance(m, sat2.Shift2Attention):
             
-            for p in m.parameters():     
-                m.total_params += torch.Tensor([p.numel()*2*36/(18*32)]) 
+            for p in m.parameters():
+                if m.binary == 1:     
+                    m.total_params += torch.Tensor([p.numel()*2*36/(18*32)]) / 32
+                else: 
+                    m.total_params += torch.Tensor([p.numel()*2*36/(18*32)])  
         else:
             
             for p in m.parameters():
-                m.total_params += torch.Tensor([p.numel()])
+                if m.binary == 1:
+                    m.total_params += torch.Tensor([p.numel()]) / 32
+                else:
+                    m.total_params += torch.Tensor([p.numel()])
         
         if isinstance(m, sat.ShiftAttention):
             m.register_forward_hook(count_sat)
-        elif isinstance(m, sat2.ShiftAttention):
+        elif isinstance(m, sat2.Shift2Attention):
             m.register_forward_hook(count_sat2)
-        elif isinstance(m, nn.Conv2d):
+        elif isinstance(m, nn.Conv2d):    
             m.register_forward_hook(count_conv2d)
         elif isinstance(m, nn.BatchNorm2d):
             m.register_forward_hook(count_bn2d)
@@ -168,8 +184,11 @@ def profile(model, input_size, custom_ops = {}):
             m.register_forward_hook(count_avgpool)
         elif isinstance(m, nn.Linear):
             m.register_forward_hook(count_linear)
+  
         elif isinstance(m, identity.Identity):
             m.register_forward_hook(count_identity)
+        elif isinstance(m, pooling.GlobalAveragePooling):
+            m.register_forward_hook(count_globalAveragePooling)
         
         elif isinstance(m, (nn.Dropout, nn.Dropout2d, nn.Dropout3d)):
             pass
@@ -198,11 +217,16 @@ def main():
     import resnet20
 #    model = mobilenet.mobilenet_v2(width_mult=1.4,num_classes=1000)
 #    model = models.densenet.densenet_cifar(n=93,growth_rate=7)#(width_mult=1.4,num_classes=100)
+#    print(model)
     model = resnet20.SATResNet26()#
 #    model = torch.load("checkpoint/resnet110samesize.pth")["net"].module.cpu()
-    file = "checkpoint/teacher_dense1968-groups_student_dense1968-groups-2.pth"
+#    file = "checkpoint/teacher_dense1968-groups_student_dense1968-groups-2.pth"
 #    model = torch.load(file)["net"].module.cpu()
-
+    for m in model.modules():
+        m.register_buffer('binary', torch.zeros(1))
+    bc = binaryconnect.BC(model)
+    
+       
     flops, params = profile(model, (1,3,32,32))
 #    flops, params = profile(model, (1,3,224,224))
     flops, params = flops.item(), params.item()
@@ -215,7 +239,7 @@ def main():
     print("Score flops: {} Score Params: {}".format(score_flops,score_params))
     print("Final score: {}".format(score))
 
-    model = torch.load(file)["net"].module
+    #model = torch.load(file)["net"].module
 
     clean_trainloader, trainloader, testloader = utils.load_data(32, cutout=True)
     utils.test(model,testloader, "cuda", "no")

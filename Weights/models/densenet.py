@@ -21,9 +21,9 @@ class SingleLayer(nn.Module):
         self.bn1 = nn.BatchNorm2d(nChannels)
         self.conv1 = nn.Conv2d(nChannels, growthRate, kernel_size=3,
                                padding=1, bias=False)
-
+        self.relu = nn.ReLU()
     def forward(self, x):
-        out = self.conv1(F.relu(self.bn1(x)))
+        out = self.conv1(self.relu(self.bn1(x)))
         out = torch.cat((x, out), 1)
         return out
 
@@ -34,14 +34,15 @@ class Bottleneck(nn.Module):
         self.conv1 = nn.Conv2d(in_planes, 4*growth_rate, kernel_size=1, bias=False)
         self.bn2 = nn.BatchNorm2d(4*growth_rate)
         groups = get_groups()
+        self.relu = nn.ReLU()
         if groups:
             self.conv2 = nn.Conv2d(4*growth_rate, growth_rate, kernel_size=3, padding=1, bias=False, groups=growth_rate)
         else:
             self.conv2 = nn.Conv2d(4*growth_rate, growth_rate, kernel_size=3, padding=1, bias=False)
 
     def forward(self, x):
-        out = self.conv1(F.relu(self.bn1(x)))
-        out = self.conv2(F.relu(self.bn2(out)))
+        out = self.conv1(self.relu(self.bn1(x)))
+        out = self.conv2(self.relu(self.bn2(out)))
         out = torch.cat([out,x], 1)
         return out
 
@@ -51,10 +52,11 @@ class Transition(nn.Module):
         super(Transition, self).__init__()
         self.bn = nn.BatchNorm2d(in_planes)
         self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=1, bias=False)
-
+        self.relu = nn.ReLU()
+        self.avg_pool2d = nn.AvgPool2d(2)
     def forward(self, x):
-        out = self.conv(F.relu(self.bn(x)))
-        out = F.avg_pool2d(out, 2)
+        out = self.conv(self.relu(self.bn(x)))
+        out = self.avg_pool2d(out)
         return out
 
 
@@ -62,7 +64,7 @@ class DenseNet(nn.Module):
     def __init__(self, block, nblocks, growth_rate=12, reduction=0.5, num_classes=100):
         super(DenseNet, self).__init__()
         self.growth_rate = growth_rate
-
+        self.relu = nn.ReLU()
         num_planes = min(growth_rate*2,16)
         self.conv1 = nn.Conv2d(3, num_planes, kernel_size=3, padding=1, bias=False)
 
@@ -89,6 +91,7 @@ class DenseNet(nn.Module):
 
         self.bn = nn.BatchNorm2d(num_planes)
         self.linear = nn.Linear(num_planes, num_classes)
+        self.avg_pool2d = nn.AvgPool2d(4)
 
     def _make_dense_layers(self, block, in_planes, nblock):
         layers = []
@@ -102,7 +105,7 @@ class DenseNet(nn.Module):
         out = self.trans1(self.dense1(out))
         out = self.trans2(self.dense2(out))
         out = self.trans3(self.dense3(out))
-        out = F.avg_pool2d(F.relu(self.bn(out)), 4)
+        out = self.avg_pool2d(self.relu(self.bn(out)))
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out

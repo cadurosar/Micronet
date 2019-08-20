@@ -9,8 +9,8 @@ Reference:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-
+import identity
+import pooling
 class BasicBlock(nn.Module):
     expansion = 1
 
@@ -20,7 +20,8 @@ class BasicBlock(nn.Module):
         self.bn1 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-
+        self.relu = nn.ReLU()
+        self.identity = identity.Identity()
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
@@ -29,10 +30,10 @@ class BasicBlock(nn.Module):
             )
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
-        out += self.shortcut(x)
-        out = F.relu(out)
+        out += self.identity(self.shortcut(x))
+        out = self.relu(out)
         return out
 
 
@@ -43,6 +44,8 @@ class ResNet(nn.Module):
         self.num_blocks = num_blocks
         self.conv1 = nn.Conv2d(3, first_layer, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(first_layer)
+        self.relu = nn.ReLU()
+        self.global_average_pooling = pooling.GlobalAveragePooling()
         if samesize:
             self.layer1 = self._make_layer(block, first_layer*wide, num_blocks[0], stride=1)
             self.layer2 = self._make_layer(block, first_layer*wide, num_blocks[1], stride=2)
@@ -70,7 +73,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
@@ -124,10 +127,10 @@ def ResNet56(first_layer=16,wide=10,samesize=False):
 def ResNet110(first_layer=16,wide=10,samesize=False):
     return ResNet(BasicBlock, [18,18,18],first_layer=first_layer,wide=wide,samesize=samesize)
 
-def global_average_pooling(inputs):
-    reshaped = inputs.view(inputs.size(0), inputs.size(1), -1)
-    pooled = torch.mean(reshaped, 2)
-    return pooled.view(pooled.size(0), -1)
+#def global_average_pooling(inputs):
+#    reshaped = inputs.view(inputs.size(0), inputs.size(1), -1)
+#    pooled = torch.mean(reshaped, 2)
+#    return pooled.view(pooled.size(0), -1)
 
 
 def test():
