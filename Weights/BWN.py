@@ -28,16 +28,14 @@ class BC():
                 if index in self.bin_range:
                     
                     m.binary = torch.ones(1)
+                    m.bwn = torch.ones(1)
                     tmp = m.weight.data.clone()
                     self.saved_params.append(tmp)
                     self.target_modules.append(m.weight)
 
-    def binarization(self):
-        self.save_params()
-        for index in range(self.num_of_params):
-            self.target_modules[index].data.copy_(self.target_modules[index].data.sign())
+    
 
-    def BWN(self): 
+    def binarization(self): 
         self.save_params()
         for index in range(self.num_of_params):
             E=self.target_modules[index].data.abs().mean()
@@ -58,9 +56,6 @@ class BC():
             self.target_modules[index].data.copy_(self.saved_params[index])
 
     def clip(self):
-        clip_scale=[]
-        m=nn.Hardtanh(-1, 1)
-        for index in range(self.num_of_params):
-            clip_scale.append(m(Variable(self.target_modules[index].data)))
-        for index in range(self.num_of_params):
-            self.target_modules[index].data.copy_(clip_scale[index].data)
+        pass
+
+    

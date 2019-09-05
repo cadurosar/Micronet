@@ -8,6 +8,7 @@ import sat
 import sat2
 import binaryconnect
 import pooling
+import BWN
 def count_conv2d(m, x, y):
     global binary_connect
     x = x[0]
@@ -133,8 +134,8 @@ def count_linear(m, x, y):
 def count_identity(m, x, y):
     total_ops = y.numel()
     m.total_ops += torch.Tensor([int(total_ops)]) 
-
-
+    if m.bwn=1:
+        m.total_ops += torch.Tensor([2*int(total_ops)])
 def count_globalAveragePooling(m, x, y):
     total_add = x.shape[2]*x.shape[3]
     total_div = 1
@@ -151,15 +152,27 @@ def profile(model, input_size, custom_ops = {}):
         m.register_buffer('total_params', torch.zeros(1))
         if isinstance(m, sat.ShiftAttention):
             
-            for p in m.parameters():     
-                m.total_params += torch.Tensor([p.numel()*36/(18*32)])
+            for p in m.parameters():  
+                if m.binary == 1:        
+                    m.total_params += torch.Tensor([p.numel()*36/(18*32)])/32
+                else:
+                    m.total_params += torch.Tensor([p.numel()*36/(18*32)])
         elif isinstance(m, sat2.Shift2Attention):
             
             for p in m.parameters():
-                if m.binary == 1:     
+                if m.binary == 1:    
                     m.total_params += torch.Tensor([p.numel()*2*36/(18*32)]) / 32
                 else: 
                     m.total_params += torch.Tensor([p.numel()*2*36/(18*32)])  
+
+        elif isinstance(m, identity.Identity):
+            for p in m.parameters():
+                if m.binary == 1:
+                    m.total_params += torch.Tensor([p.numel()]) / 32
+                    if m.bwn == 1:
+                        m.total_params += 2
+                else:
+                    m.total_params += torch.Tensor([p.numel()]) 
         else:
             
             for p in m.parameters():
@@ -224,6 +237,7 @@ def main():
 #    model = torch.load(file)["net"].module.cpu()
     for m in model.modules():
         m.register_buffer('binary', torch.zeros(1))
+        m.register_buffer('bwn', torch.zeros(1))
     bc = binaryconnect.BC(model)
     
        
