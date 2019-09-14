@@ -176,8 +176,7 @@ def profile(model, input_size, custom_ops = {}):
         else:
             
             for p in m.parameters():
-                if m.binary == 1:
-                    print("PUTA MERDA")
+                if hasattr(m, 'binary') and m.binary == 1:
                     m.total_params += torch.Tensor([p.numel()]) / 32
                 else:
                     m.total_params += torch.Tensor([p.numel()])
@@ -234,13 +233,15 @@ def main():
 #    print(model)
 #    model = resnet20.SATResNet26()#
 #    model = torch.load("checkpoint/resnet110samesize.pth")["net"].module.cpu()
-#    BC = binaryconnect.BC
-    file = "checkpoint/Densenet1968-2.pth"
+    BC = BWN.BC
+    file = "checkpoint/BWN-Densenet1968-2.pth"
     model = torch.load(file)["net"].module.cpu()
     for m in model.modules():
-        m.register_buffer('binary', torch.zeros(1))
-        m.register_buffer('bwn', torch.zeros(1))
-#    bc = BC(model)
+        if not hasattr(m, 'binary'):
+            m.register_buffer('binary', torch.zeros(1))
+        if not hasattr(m, 'bwn'):
+            m.register_buffer('bwn', torch.zeros(1))
+    bc = BC(model)
     
        
     flops, params = profile(model, (1,3,32,32))
@@ -256,10 +257,10 @@ def main():
     print("Final score: {}".format(score))
 
     model = torch.load(file)["net"].module
-#    bc = BC(model)
+    bc = BC(model)
     clean_trainloader, trainloader, testloader = utils.load_data(32, cutout=True)
-#    utils.test(model,testloader, "cuda", "no",bc=bc)
-    utils.test(model,testloader, "cuda", "no")
+    utils.test(model,testloader, "cuda", "no",bc=bc)
+#    utils.test(model,testloader, "cuda", "no")
 
 if __name__ == "__main__":
     main()
