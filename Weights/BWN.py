@@ -12,7 +12,7 @@ class BC():
                 
 
         start_range = 0
-        end_range = 1#count_targets-1
+        end_range = count_targets-1
         self.bin_range = numpy.linspace(start_range,
                 end_range, end_range-start_range+1)\
                         .astype('int').tolist()
