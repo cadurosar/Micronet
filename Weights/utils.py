@@ -201,13 +201,13 @@ def load_data(batch_size=128, cutout=False, batch_clean=128):
     ])
 
     trainset = torchvision.datasets.CIFAR100(root='./data', train=True, download=True, transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=10, pin_memory=True)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=64, pin_memory=True)
 
     testset = torchvision.datasets.CIFAR100(root='./data', train=False, download=True, transform=transform_test)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=10, pin_memory=True)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=20, pin_memory=True)
 
     clean_trainset = torchvision.datasets.CIFAR100(root='./data', train=True, download=True, transform=transform_test)
-    clean_trainloader = torch.utils.data.DataLoader(clean_trainset, batch_size=batch_clean, shuffle=True, num_workers=10, pin_memory=True)
+    clean_trainloader = torch.utils.data.DataLoader(clean_trainset, batch_size=batch_clean, shuffle=True, num_workers=20, pin_memory=True)
     return clean_trainloader, trainloader, testloader
 
 def get_lambda(alpha=1.0):

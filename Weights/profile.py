@@ -134,7 +134,7 @@ def count_linear(m, x, y):
 def count_identity(m, x, y):
     total_ops = y.numel()
     m.total_ops += torch.Tensor([int(total_ops)]) 
-    if m.bwn=1:
+    if m.bwn==1:
         m.total_ops += torch.Tensor([2*int(total_ops)])
 def count_globalAveragePooling(m, x, y):
     total_add = x.shape[2]*x.shape[3]
@@ -177,6 +177,7 @@ def profile(model, input_size, custom_ops = {}):
             
             for p in m.parameters():
                 if m.binary == 1:
+                    print("PUTA MERDA")
                     m.total_params += torch.Tensor([p.numel()]) / 32
                 else:
                     m.total_params += torch.Tensor([p.numel()])
@@ -231,21 +232,22 @@ def main():
 #    model = mobilenet.mobilenet_v2(width_mult=1.4,num_classes=1000)
 #    model = models.densenet.densenet_cifar(n=93,growth_rate=7)#(width_mult=1.4,num_classes=100)
 #    print(model)
-    model = resnet20.SATResNet26()#
+#    model = resnet20.SATResNet26()#
 #    model = torch.load("checkpoint/resnet110samesize.pth")["net"].module.cpu()
-#    file = "checkpoint/teacher_dense1968-groups_student_dense1968-groups-2.pth"
-#    model = torch.load(file)["net"].module.cpu()
+#    BC = binaryconnect.BC
+    file = "checkpoint/Densenet1968-2.pth"
+    model = torch.load(file)["net"].module.cpu()
     for m in model.modules():
         m.register_buffer('binary', torch.zeros(1))
         m.register_buffer('bwn', torch.zeros(1))
-    bc = binaryconnect.BC(model)
+#    bc = BC(model)
     
        
     flops, params = profile(model, (1,3,32,32))
 #    flops, params = profile(model, (1,3,224,224))
     flops, params = flops.item(), params.item()
-    mobilenet_params = 6900000
-    mobilenet_flops = 1170000000
+    mobilenet_params = 36500000
+    mobilenet_flops = 10490000000
     score_flops = flops/mobilenet_flops
     score_params = params/mobilenet_params
     score = score_flops + score_params
@@ -253,9 +255,10 @@ def main():
     print("Score flops: {} Score Params: {}".format(score_flops,score_params))
     print("Final score: {}".format(score))
 
-    #model = torch.load(file)["net"].module
-
+    model = torch.load(file)["net"].module
+#    bc = BC(model)
     clean_trainloader, trainloader, testloader = utils.load_data(32, cutout=True)
+#    utils.test(model,testloader, "cuda", "no",bc=bc)
     utils.test(model,testloader, "cuda", "no")
 
 if __name__ == "__main__":

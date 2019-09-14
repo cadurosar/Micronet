@@ -21,7 +21,7 @@ class SingleLayer(nn.Module):
         self.bn1 = nn.BatchNorm2d(nChannels)
         self.conv1 = nn.Conv2d(nChannels, growthRate, kernel_size=3,
                                padding=1, bias=False)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
     def forward(self, x):
         out = self.conv1(self.relu(self.bn1(x)))
         out = torch.cat((x, out), 1)
@@ -34,7 +34,7 @@ class Bottleneck(nn.Module):
         self.conv1 = nn.Conv2d(in_planes, 4*growth_rate, kernel_size=1, bias=False)
         self.bn2 = nn.BatchNorm2d(4*growth_rate)
         groups = get_groups()
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
         if groups:
             self.conv2 = nn.Conv2d(4*growth_rate, growth_rate, kernel_size=3, padding=1, bias=False, groups=growth_rate)
         else:
@@ -52,7 +52,7 @@ class Transition(nn.Module):
         super(Transition, self).__init__()
         self.bn = nn.BatchNorm2d(in_planes)
         self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=1, bias=False)
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
         self.avg_pool2d = nn.AvgPool2d(2)
     def forward(self, x):
         out = self.conv(self.relu(self.bn(x)))
@@ -64,7 +64,7 @@ class DenseNet(nn.Module):
     def __init__(self, block, nblocks, growth_rate=12, reduction=0.5, num_classes=100):
         super(DenseNet, self).__init__()
         self.growth_rate = growth_rate
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU(inplace=True)
         num_planes = min(growth_rate*2,16)
         self.conv1 = nn.Conv2d(3, num_planes, kernel_size=3, padding=1, bias=False)
 
@@ -124,9 +124,9 @@ def DenseNet161():
 
 def densenet_cifar(n=100,growth_rate=6,reduction=0.5, groups=False): #n=196 growth_rate=8
     n = (n-4)//3
-    #n = n//2
+    n = n//2
     set_groups(groups)
-    return DenseNet(SingleLayer, [n,n,n], growth_rate=growth_rate, reduction=reduction)
+    return DenseNet(Bottleneck, [n,n,n], growth_rate=growth_rate, reduction=reduction)
 
 def test():
     net = densenet_cifar()
