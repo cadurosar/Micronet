@@ -13,7 +13,6 @@ import torch.nn.functional as F
 import torch.nn.init as init
 import torch 
 import numpy as np
-import sat_parameters
 
 import torchvision
 import torchvision.transforms as transforms
@@ -253,7 +252,7 @@ def rand_bbox(size, lam):
     return bbx1, bby1, bbx2, bby2
 
 
-def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,temp=6, mixup_alpha=1, cutmix=False, cut_mix_prob=1.0,bc=None):
+def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,temp=6, mixup_alpha=1, cutmix=False, cut_mix_prob=1.0):
     net.train()
     train_loss = 0
     correct = 0
@@ -262,8 +261,6 @@ def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,tem
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         inputs, targets = inputs.to(device), targets.to(device)
         targets2 = to_one_hot(targets, 100)
-        if(bc != None):
-            bc.binarization()
         if not cutmix:
             lam = get_lambda(mixup_alpha)
             lam = torch.from_numpy(np.array([lam]).astype('float32')).cuda()
@@ -300,22 +297,17 @@ def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,tem
             outputs = net(inputs)
             loss = criterion(F.log_softmax(outputs/temp,dim=-1), targets2)
         loss.backward()
-        if(bc != None):
-            bc.restore()
         optimizer.step()
-        if(bc != None):
-            bc.clip()
         train_loss += loss.item()
         _, predicted = outputs.max(1)
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
-        sat_parameters.update_temperature_mult()
 
         progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
             % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
     scheduler.step()
 
-def test(net,testloader, device,save_name="teacher",bc=None):
+def test(net,testloader, device,save_name="teacher"):
     net.eval()
     test_loss = 0
     correct = 0
@@ -323,8 +315,6 @@ def test(net,testloader, device,save_name="teacher",bc=None):
     criterion = nn.CrossEntropyLoss()
 
     with torch.no_grad():
-        if(bc != None):
-            bc.binarization()
         for batch_idx, (inputs, targets) in enumerate(testloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = net(inputs)
@@ -338,8 +328,6 @@ def test(net,testloader, device,save_name="teacher",bc=None):
             progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
                 % (test_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
-    if(bc != None):
-        bc.restore()
     state = {
         'net': net,
     }

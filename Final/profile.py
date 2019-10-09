@@ -3,12 +3,8 @@ import argparse
 import torch
 import torch.nn as nn
 import utils
-import identity
-import sat
-import sat2
-import binaryconnect
-import pooling
-import BWN
+
+
 def count_conv2d(m, x, y):
     x = x[0] # remove tuple
 
@@ -117,9 +113,6 @@ def profile(model, input_size, custom_ops = {}):
     return total_ops, total_params
 
 def main():
-    import mobilenet
-    import models.densenet
-    import resnet20
     file = "checkpoint/Densenet1968-2.pth"
     model = torch.load(file)["net"].module.cpu()
     print(model)
@@ -136,15 +129,15 @@ def main():
     print("Score flops: {} Score Params: {}".format(score_flops,score_params))
     print("Final score: {}".format(score))
 
-    mobilenet_params = 6900000
-    mobilenet_flops = 1170000000
-    score_flops = flops/mobilenet_flops
-    score_params = params/mobilenet_params
-    score = score_flops + score_params
-    print("AGAINST MOBILENET")
-    print("Flops: {}, Params: {}".format(flops,params))
-    print("Score flops: {} Score Params: {}".format(score_flops,score_params))
-    print("Final score: {}".format(score))
+#    mobilenet_params = 6900000
+#    mobilenet_flops = 1170000000
+#    score_flops = flops/mobilenet_flops
+#    score_params = params/mobilenet_params
+#    score = score_flops + score_params
+#    print("AGAINST MOBILENET")
+#    print("Flops: {}, Params: {}".format(flops,params))
+#    print("Score flops: {} Score Params: {}".format(score_flops,score_params))
+#    print("Final score: {}".format(score))
 
 
     model = torch.load(file)["net"].module
