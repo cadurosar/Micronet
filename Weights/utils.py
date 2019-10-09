@@ -298,7 +298,7 @@ def train(net,trainloader,scheduler,device,optimizer,teacher=None,alpha=0.95,tem
             loss = (1-alpha)*kd_loss_teacher + alpha*cross_entropy
         else:
             outputs = net(inputs)
-            loss = criterion(F.log_softmax(outputs,dim=-1), targets2)
+            loss = criterion(F.log_softmax(outputs/temp,dim=-1), targets2)
         loss.backward()
         if(bc != None):
             bc.restore()

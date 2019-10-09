@@ -19,11 +19,13 @@ def count_conv2d(m, x, y):
     batch_size = x.size()[0]
 
     # ops per output element
+    print(m.binary)
     kernel_mul = kh * kw * cin * (1/32)**m.binary  
     kernel_add = kh * kw * cin - 1
     bias_ops = 1 if m.bias is not None else 0
+    kernel_mul = kernel_mul/2 if m.binary == 0 else kernel_mul
     ops = kernel_mul + kernel_add + bias_ops
-
+    
     # total ops
     num_out_elements = y.numel()
     total_ops = num_out_elements * ops
@@ -172,14 +174,14 @@ def profile(model, input_size, custom_ops = {}):
                     if m.bwn == 1:
                         m.total_params += 2
                 else:
-                    m.total_params += torch.Tensor([p.numel()]) 
+                    m.total_params += torch.Tensor([p.numel()]) / 2
         else:
             
             for p in m.parameters():
                 if hasattr(m, 'binary') and m.binary == 1:
                     m.total_params += torch.Tensor([p.numel()]) / 32
                 else:
-                    m.total_params += torch.Tensor([p.numel()])
+                    m.total_params += torch.Tensor([p.numel()]) / 2
         
         if isinstance(m, sat.ShiftAttention):
             m.register_forward_hook(count_sat)
@@ -233,34 +235,46 @@ def main():
 #    print(model)
 #    model = resnet20.SATResNet26()#
 #    model = torch.load("checkpoint/resnet110samesize.pth")["net"].module.cpu()
-    BC = BWN.BC
-    file = "checkpoint/BWN-Densenet1968-2.pth"
+    #BC = BWN.BC
+    file = "checkpoint/Densenet1968-2.pth"
     model = torch.load(file)["net"].module.cpu()
     for m in model.modules():
         if not hasattr(m, 'binary'):
             m.register_buffer('binary', torch.zeros(1))
         if not hasattr(m, 'bwn'):
             m.register_buffer('bwn', torch.zeros(1))
-    bc = BC(model)
+    #bc = BC(model)
     
        
     flops, params = profile(model, (1,3,32,32))
 #    flops, params = profile(model, (1,3,224,224))
     flops, params = flops.item(), params.item()
-    mobilenet_params = 36500000
-    mobilenet_flops = 10490000000
-    score_flops = flops/mobilenet_flops
-    score_params = params/mobilenet_params
+    wideresnet_params = 36500000
+    wideresnet_flops = 10490000000
+    score_flops = flops/wideresnet_flops
+    score_params = params/wideresnet_params
     score = score_flops + score_params
+    print("AGAINST WIDERESNET")
     print("Flops: {}, Params: {}".format(flops,params))
     print("Score flops: {} Score Params: {}".format(score_flops,score_params))
     print("Final score: {}".format(score))
 
+    mobilenet_params = 6900000
+    mobilenet_flops = 1170000000
+    score_flops = flops/mobilenet_flops
+    score_params = params/mobilenet_params
+    score = score_flops + score_params
+    print("AGAINST MOBILENET")
+    print("Flops: {}, Params: {}".format(flops,params))
+    print("Score flops: {} Score Params: {}".format(score_flops,score_params))
+    print("Final score: {}".format(score))
+
+
     model = torch.load(file)["net"].module
-    bc = BC(model)
+#    bc = BC(model)
     clean_trainloader, trainloader, testloader = utils.load_data(32, cutout=True)
-    utils.test(model,testloader, "cuda", "no",bc=bc)
-#    utils.test(model,testloader, "cuda", "no")
+#    utils.test(model,testloader, "cuda", "no",bc=bc)
+    utils.test(model,testloader, "cuda", "no")
 
 if __name__ == "__main__":
     main()
