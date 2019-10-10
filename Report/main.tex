@@ -1,0 +1,104 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{pgfplotstable}
+\pgfplotsset{compat=1.15}
+\usepackage{fancyvrb}
+
+\title{}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+Using our DenseNet-BC we have approximately $634k$ 32FP-ops and $626k$ FP32-params. This gives us a score of approximately (rounding up) $0.078$ in total, where for the ops, we obtain $0.06$ as our score, and for the parameters, we obtain $0.018$ as our score.
+
+To test a pre-trained network and check the score, just run profile.py. To train a network, just run train.py and then re-run profile.py.  
+
+We describe our methods and computations in the following:
+
+\section{Data Augmentation}
+\label{data_aug}
+
+We first use standard Data augmentation such as flip and random crop. In addition, we propose to add other different data augmentations. We use CutMix with $\alpha = 1$ for all training dataset, and we drop $64$ pixels randomly for each input training image. 
+
+\section{Architecture}
+
+We use a DenseNet-BC architecture with $K = 8$, depth $D = 196$ and reduction $R = 0.5$. 
+
+\section{Computing the Number of Parameters}
+
+To get the number of parameters of the DenseNet-BC architecture, we compute the number of parameters of each layer (or each Bottleneck layer that contains 2 Batch norm layers, 2 Convolutional layers and 2 Relu), as described in Table~\ref{table:params}
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{c|c}
+    Layer     & Number of parameters  \\
+    \hline
+    Convolution     &      $F_{in}F_{out}S_c^2$ \\
+    \hline
+    Batch norm & $4F_{in}$ \\
+    \hline
+    $Bottleneck_i$ & $ 4[F_{in} + K(4 + F_{in} + i + K(1 + i)]$\\
+    \hline
+    Linear & $F_{in}F_{out}$\\
+    \hline
+    Transition & $F_{in}(4 + RF_{in})$ \\
+    \hline
+    \end{tabular}
+    \caption{The number of parameters for each layer. Note that $F_{in}$ represents the number of input feature maps, $F_{out}$ represents the number of output feature maps, $S_c^2$ represents the kernel size of a convolutional operation, $i$ represents the depth of the bottleneck inside a block that contains $\frac{D-4}{6}$ bottleneck layers.}
+    \label{table:params}
+\end{table}
+
+\section{Computing the Number of Operations}
+
+to get the number of operations required to process one input through the  DenseNet-BC network, we compute the number of operations of each layer (or each Bottleneck layer that contains 2 Batch norm layers, 2 Convolutional layers and 2 Relu), as described in Table~\ref{table:Flops}
+
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{c|c}
+    Layer     & Number of operations  \\
+    \hline
+    Convolution     &  $[\frac{F_{in}F_{out}S_c^2}{2} + (F_{in}S_c^2 -1)F_{out}]P $ \\
+    \hline
+    Batch norm & $3F_{in}P$ \\
+    \hline
+    Relu & $F_{in}P$\\
+    \hline
+    Average pooling & $S_p^2PF_{in} $ \\
+    \hline
+    Linear & $1.5F_{in}F_{out}$ \\
+    \hline
+    Transition & $4F_{in}P + [\frac{F_{in}F_{out}S_c^2}{2} + (F_{in}S_c^2 -1)F_{out}]P + S_p^2PF_{out}$ \\
+    \hline
+    $Bottleneck_i$ & Batch norm1 + Relu1 + Batch norm2 + Relu2 + Conv1 + Conv2\\
+    & Batch norm1 = $3P(F_{in} + iK)$\\
+    & Relu1 = $P(F_{in} + iK)$\\
+    & Batch norm2 = $12P_{in}K$\\
+    & Relu2 = $4P_{in}K$\\
+    & Conv1 = $P[\frac{(F_{in} + iK)4K}{2} + (F_{in} + ik -1)4K]$\\
+    & Conv2 = $[\frac{36K^2}{2} + (36K-1)K]P$\\
+    \hline
+    
+    \hline
+    
+    \hline
+    \end{tabular}
+    \caption{The number of operations for each layer. Note that $F_{in}$ represents the number of input feature maps, $F_{out}$ represents the number of output feature maps, $S_c^2$ represents the kernel size of a convolutional operation, $S_p^2$ represents the kernel size of an average pooling operation, $i$ represents the depth of the bottleneck inside a block that contains $\frac{D-4}{6}$ bottleneck layers, $P$ represents the number of pixels of an input feature map.}
+    \label{table:Flops}
+\end{table}
+
+\section{Training procedure}
+
+We train the network with the data augmentation described on Section~\ref{data_aug} for 200 epochs, using a batch size of 32 and a softmax temperature of 6. Our learning rate starts at 0.1 and is divided by 10 at epochs 100 and 150. We then fine-tune the network by training it for an extra 5 epochs without data-augmentation. 
+
+\newpage
+
+\input{architecture.tex}
+
+
+\end{document} 
