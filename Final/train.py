@@ -25,13 +25,13 @@ def main():
     for epoch in range(200):
         print('Epoch: %d' % epoch)
         train(net,trainloader,scheduler, device, optimizer,cutmix=True)
-        test(net,testloader, device, save_name="Densenet1968_newtest")
+        test(net,testloader, device, save_name="Densenet1968_newtest2")
     optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9, weight_decay=1e-4)
     scheduler = MultiStepLR(optimizer, milestones=[100, 200], gamma=0.1)
     for epoch in range(5):
         print('Epoch: %d' % epoch)
         train(net,clean_trainloader,scheduler, device, optimizer,cutmix=False,mixup_alpha=0)
-        test(net,testloader, device, save_name="Densenet1968-2_newtest")
+        test(net,testloader, device, save_name="Densenet1968-2_newtest2")
 if __name__ == "__main__":
     main()
 

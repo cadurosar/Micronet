@@ -113,7 +113,7 @@ def profile(model, input_size, custom_ops = {}):
     return total_ops, total_params
 
 def main():
-    file = "checkpoint/Densenet1968-2.pth"
+    file = "checkpoint/Densenet1968-2_newtest2.pth"
     model = torch.load(file)["net"].module.cpu()
     print(model)
     flops, params = profile(model, (1,3,32,32))

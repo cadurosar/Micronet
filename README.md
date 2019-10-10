@@ -1,19 +1,14 @@
-Micronet-challenge starting from cutout.
+BrAIn team entry for the MicroNet Neurips challenge on the CIFAR-100 Task. Our final score is 0.078, 0.060 from the ops and 0.018 from the parameters. All the details are available in report.pdf
 
-Open Tasks:
+All the code is available in the Final folder. 
 
-* Add SAL
-* Add Distillation
-* Add Layerwise distillation
-* Massive ensemble distillation
+To test a pre-trained network and check the score, just run profile.py. We provide three files from three different iterations of train.py, all of them with the same score and above the threshold accuracy.
 
-Closed tasks:
+To train a network, just run train.py. You can them re-run the profile with profile.py.
 
-* Calc flops
-* Calc params
-* Achieve 80%
+Members (Alphabetical Order):
 
-Scores:
-Baseline (WideResnet 28-10): 10.55
-Testing:
-WideResnet 28-10 with 4 blocks of 3 instead of 3 blocks of 4. Block sizes are 16, 16, 160, 320, 640 instead of 16, 160,320,640: 4.92 (Codename starting_small)
+Carlos Lassance
+Ghouthi Boukli Hacene
+Sebastien Henwood
+Vincent Gripon
