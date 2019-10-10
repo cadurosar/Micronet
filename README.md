@@ -1,4 +1,4 @@
-#BrAIn team entry for the MicroNet Neurips challenge on the CIFAR-100 Task. 
+# BrAIn team entry for the MicroNet Neurips challenge on the CIFAR-100 Task. 
 
 ## Score
 
